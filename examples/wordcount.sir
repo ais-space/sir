@@ -1,0 +1,165 @@
+Context
+    DocumentVersion: 0.11.1-draft
+    GrammarVersion: 1.0.1
+    Language: en
+
+Module
+    Type: Module
+    Role: Content
+    AbstractionLevel: High
+    Caption: Count hits of one word in a short text
+
+    Function
+        Type: Function
+        Role: Content
+        Name: count_hits
+        Params: words, needle
+        Returns: c
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Scan position starts at zero
+            Op: Core.Lit
+            Params: 0
+            Returns: i
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Hits start at zero
+            Op: Core.Lit
+            Params: 0
+            Returns: c
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: List length bounds the scan
+            Op: Core.ListLen
+            Params: words
+            Returns: n
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Enter while position is inside
+            Op: Core.Lt
+            Params: i, n
+            Returns: cont
+
+        Loop
+            Type: Loop
+            Role: Content
+            Caption: Linear scan with an explicit bound
+            Condition: cont
+
+            Body
+                Type: Section
+                Role: Content
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Read the current word
+                    Op: Core.ListGet
+                    Params: words, i
+                    Returns: w
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Compare with the needle
+                    Op: Core.Eq
+                    Params: w, needle
+                    Returns: hit
+
+                Branch
+                    Type: Branch
+                    Role: Content
+                    Caption: Count the hit or keep the tally
+                    Condition: hit
+
+                    TrueBlock
+                        Type: Section
+                        Role: Content
+
+                        Instruction
+                            Type: Instruction
+                            Role: Content
+                            Caption: One more hit
+                            Op: Core.Add
+                            Params: c, 1
+                            Returns: c
+
+                    FalseBlock
+                        Type: Section
+                        Role: Content
+
+                        Instruction
+                            Type: Instruction
+                            Role: Content
+                            Caption: Tally unchanged
+                            Op: Core.Id
+                            Params: c
+                            Returns: c
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Advance the position
+                    Op: Core.Add
+                    Params: i, 1
+                    Returns: i
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Re-evaluate the bound
+                    Op: Core.Lt
+                    Params: i, n
+                    Returns: cont
+
+        Result
+            Type: Result
+            Role: Content
+            Caption: Hit count
+            State: Ok
+            Returns: c
+
+    Function
+        Type: Function
+        Role: Content
+        Name: main
+        Returns: c1
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Text under test
+            Op: Core.Lit
+            Params: "the cat sat on the mat"
+            Returns: text
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Split on spaces
+            Op: Core.StrSplit
+            Params: text, " "
+            Returns: words
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Count the article in an isolated call frame
+            Op: Ctrl.Call
+            Params: count_hits, words, "the"
+            Returns: c1
+
+        Result
+            Type: Result
+            Role: Content
+            Caption: Hits of the needle
+            State: Ok
+            Returns: c1

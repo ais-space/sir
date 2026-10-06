@@ -1,0 +1,109 @@
+Context
+    DocumentVersion: 0.11.1-draft
+    GrammarVersion: 1.0.1
+    Language: en
+
+Module
+    Type: Module
+    Role: Content
+    AbstractionLevel: High
+    Caption: Validate a tool config map before launch
+
+    Function
+        Type: Function
+        Role: Content
+        Name: main
+        Returns: valid
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Build the config under test
+            Op: Core.Map
+            Params: "host", "example", "port", 8080, "retries", 3
+            Returns: cfg
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Read the port field
+            Op: Core.MapGet
+            Params: cfg, "port"
+            Returns: port
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Inspect the dynamic type tag
+            Op: Core.TypeOf
+            Params: port
+            Returns: ptype
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Port must be tagged int
+            Op: Core.Eq
+            Params: ptype, "int"
+            Returns: isInt
+
+        Branch
+            Type: Branch
+            Role: Content
+            Caption: Type gate first
+            Condition: isInt
+
+            TrueBlock
+                Type: Section
+                Role: Content
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Read the retries field
+                    Op: Core.MapGet
+                    Params: cfg, "retries"
+                    Returns: retries
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Lower bound of the budget
+                    Op: Core.Ge
+                    Params: retries, 0
+                    Returns: lo
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Upper bound of the budget
+                    Op: Core.Le
+                    Params: retries, 5
+                    Returns: hi
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Both bounds must hold
+                    Op: Core.And
+                    Params: lo, hi
+                    Returns: valid
+
+            FalseBlock
+                Type: Section
+                Role: Content
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Wrong type fails closed
+                    Op: Core.Lit
+                    Params: false
+                    Returns: valid
+
+        Result
+            Type: Result
+            Role: Content
+            Caption: Validation flag
+            State: Ok
+            Returns: valid

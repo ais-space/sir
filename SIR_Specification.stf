@@ -1,0 +1,500 @@
+Context
+    DocumentVersion: 0.11.1-draft
+    GrammarVersion: 1.0.1
+    Language: en
+
+Page
+    Type: Page
+    Role: Content
+    Purpose: Normative vocabulary and structural rules for SIR.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 1. Abstract
+        
+        Text
+            Content: This document defines the normative vocabulary, properties, and object types required to construct valid SIR Abstract Syntax Trees (AST) on top of the STF Core grammar.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 2. SIR Vocabulary
+        
+        Properties
+            Type: Section
+            Role: Content
+            Caption: 2.1 SIR-Specific Properties
+            
+            PropertyEntry
+                Type: Text
+                Caption: AbstractionLevel
+                Content: Declares the semantic level of a module or block. Permitted values: High, Mid, Low. The declaration is normative: High modules use ONLY portable vocabulary (Core.*, Mem.*, Sys.*, Ctrl.Call); Low modules MAY additionally use the target-facing IR.* namespace (§6.13); Mid is RESERVED for future use and MUST NOT be declared yet. One Module declares exactly one level, and its Function bodies MUST NOT mix vocabulary of another level; crossing levels happens through Function calls (Ctrl.Call), not by mixing instructions. A level violation is a structural error for validators and backends.
+            PropertyEntry
+                Type: Text
+                Caption: Op
+                Content: The operation to perform. MUST use a standard namespace — Core.*, Mem.*, Sys.*, or Ctrl.Call for portable code; the low-level IR.* namespace (§6.13) is additionally available to Low-level modules only (see AbstractionLevel). Examples: Core.Add, Core.Neg, Core.Mod, Core.BitAnd, Core.BitOr, Core.BitXor, Core.ShiftL, Core.ShiftR, Core.Id, Mem.Read, Mem.Write, Mem.Alloc, Sys.Display, Sys.Trace, Ctrl.Call. Sys.Trace is the instrumentation Op (§7.2.2): pure, needs no Capability, code-generating backends MUST strip it.
+            PropertyEntry
+                Type: Text
+                Caption: Params
+                Content: Comma-separated list of input parameter NodeIds or typed literal values.
+            PropertyEntry
+                Type: Text
+                Caption: Returns
+                Content: The NodeId mapping where the result of the operation is structurally bound.
+            PropertyEntry
+                Type: Text
+                Caption: Capabilities
+                Content: A comma-separated list of permitted side-effects. Standard capability names: Sys.Input, Sys.Output, Sys.Storage (channel and storage Ops), Mem.Read, MemPersistentWrite (memory Ops). Defaults to empty (Pure).
+            PropertyEntry
+                Type: Text
+                Caption: Origin
+                Content: Declares who authored the Module. Permitted values follow the STF core trust model: Human, Agent, External, Application, Backend, System. Origin is the input to the trust boundaries of §4; it does not by itself grant any Capability.
+
+        Types
+            Type: Section
+            Role: Content
+            Caption: 2.2 Base Executable Types
+            
+            ObjectType
+                Type: Text
+                Caption: Module
+                Content: The root container for a SIR program or library.
+            ObjectType
+                Type: Text
+                Caption: Function
+                Content: An executable block of code. Contains a Name (optional; the entry point is the Function named "main", or the first Function if none is named), Params, Returns, and a Body. User-defined Functions are invoked from other Functions via Ctrl.Call and execute in an isolated local scope; TransientVars do not leak between calls.
+            ObjectType
+                Type: Text
+                Caption: Instruction
+                Content: A single executable step in Mid/Low level abstraction. Contains Op and Params.
+            ObjectType
+                Type: Text
+                Caption: Branch
+                Content: A control flow node containing Condition, TrueBlock, and FalseBlock child sections.
+            ObjectType
+                Type: Text
+                Caption: Loop
+                Content: A control flow node containing Condition and a Body. Execution repeats the Body until the Condition evaluates to false.
+            ObjectType
+                Type: Text
+                Caption: AsyncGroup
+                Content: RESERVED for future evolution. Intended as a block of instructions guaranteed to have no data dependencies, eligible for concurrent execution. No operational semantics are specified in this version; engines MUST treat an AsyncGroup node as inert structure — parse and preserve it, never execute or lower it.
+            ObjectType
+                Type: Text
+                Caption: Result
+                Content: A monadic node returned from fallible operations, carrying State: Ok or State: Error.
+
+        HighLevelTypes
+            Type: Section
+            Role: Content
+            Caption: 2.3 High-Level Abstraction Types
+            
+            ObjectType
+                Type: Text
+                Caption: Class
+                Content: RESERVED for future evolution. Intended as a High-Level abstraction container for methods and state, enabling Object-Oriented paradigms at the top of the AbstractionLevel ladder. No operational semantics are specified in this version; engines MUST treat a Class node as inert structure.
+            ObjectType
+                Type: Text
+                Caption: Type
+                Content: RESERVED for future evolution. Intended as a structural type definition node used for static typing and ABI generation. No operational semantics are specified in this version; engines MUST treat a Type node as inert structure.
+
+        MemoryTypes
+            Type: Section
+            Role: Content
+            Caption: 2.4 Memory & ABI Types
+
+            ObjectType
+                Type: Text
+                Caption: TransientVar
+                Content: A structurally scoped variable node that exists only within the current Function frame.
+            ObjectType
+                Type: Text
+                Caption: ABIMap
+                Content: RESERVED contract node intended to define how values and calls cross between AbstractionLevels at Function boundaries deterministically (see the cross-level rule in §3). Its concrete structure is NOT standardized in this version; engines MUST NOT invent ad-hoc semantics for it and MUST treat it as inert structure until the contract is specified.
+
+        VersionDeclaration
+            Type: Section
+            Role: Content
+            Caption: 2.5 Version Declaration
+
+            RuleEntry
+                Type: Text
+                Caption: Declared SIR Version
+                Content: A compilable SIR document carries a Context header with DocumentVersion (the SIR specification version the program targets) and GrammarVersion. The declaration is normative for compiling engines: it names the language version, not the program version.
+            RuleEntry
+                Type: Text
+                Caption: Newer-Only Refusal
+                Content: A compiling engine MUST compare the declared version against the newest SIR version it supports. If the declared version is NEWER, the engine MUST refuse loudly (a structural error naming the declared version and the minimum compiler version required) and MUST NOT attempt compilation. Engines MUST NOT guess or cascade-fail. Older declared versions MUST be accepted: backward compatibility is promised, so a newer compiler compiles programs written against previous SIR versions.
+            RuleEntry
+                Type: Text
+                Caption: Missing Declaration
+                Content: A Module without a Context DocumentVersion carries no language-version claim. A compiling engine MUST refuse it loudly with a hint to add the declaration, and MUST NOT assume any version silently.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 3. Execution & Memory Rules
+        
+        RuleEntry
+            Type: Text
+            Caption: Dual-Phase Execution
+            Content: SIR supports Agent Tree-Walk interpretation and AOT Compilation lowering. Parsers MUST support both transient runtime state and static compilation analysis.
+        RuleEntry
+            Type: Text
+            Caption: Memory Isolation
+            Content: Instructions modifying memory MUST explicitly differentiate between TransientVar targets (local frame) and STF-Memory targets (persistent graph). Persistent writes require the MemPersistentWrite Capability.
+        RuleEntry
+            Type: Text
+            Caption: Cross-Level ABI Compliance
+            Content: A Function MUST NOT invoke a function of a different AbstractionLevel except through an explicit ABI contract at the callee boundary (the ABIMap contract node, §2.4). Implicit reliance on the value representation or memory layout of another level is FORBIDDEN — level crossing happens only through documented contracts and function boundaries.
+
+        RuleEntry
+            Type: Text
+            Caption: Monadic Error Propagation
+            Content: Fallible Ops (e.g., Core.Div) yield a Result value carrying Ok or Error. An Instruction whose parameter resolves to an Error Result MUST NOT execute; it propagates the Error Result to its Returns and the frame records the first error. Hidden exceptions and implicit stack unwinding are FORBIDDEN. A Function that may fail MUST end in a Result node.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 4. Security & Trust Boundaries
+        
+        RuleEntry
+            Type: Text
+            Caption: Untrusted Code Sandboxing
+            Content: Modules with Origin: Agent or Origin: Human MUST NOT declare Capabilities. Attempting to execute privileged Ops results in a structural TrustBoundaryViolation.
+        RuleEntry
+            Type: Text
+            Caption: Trusted Orchestration
+            Content: Only Modules with Origin: Application or Backend may declare Capabilities and perform stateful side-effects.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 5. Control Flow & Error Handling
+        
+        RuleEntry
+            Type: Text
+            Caption: Structural Control Flow
+            Content: Control flow is strictly hierarchical via Branch and Loop nodes. Arbitrary jumps across structural boundaries are FORBIDDEN. A Branch node carries a Condition (NodeId resolving to Bool) and child TrueBlock / FalseBlock sections each containing Instructions (and nested Branch/Loop). A Loop node carries a Condition (re-evaluated each iteration) and a Body section; iteration stops when the condition is false. An implementation MUST bound Loop iterations to prevent runaway execution.
+        RuleEntry
+            Type: Text
+            Caption: Monadic Error Propagation
+            Content: Functions handling fallible operations MUST return a Result node. Stack unwinding and hidden exceptions are FORBIDDEN.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 6. Value Model & Concrete Execution Semantics
+
+        ValueModel
+            Type: Section
+            Role: Content
+            Caption: 6.1 Value Types
+            Content: The Portable Core operates on a closed value set — Int (integer), Float, String, Bool, Null, NodeRef (reference into the STF-Memory graph), List (ordered collection, may nest to form trees), Map (key→value mapping, keys are scalars). Values are immutable; a variable binds a name to a value. Implicit type coercion is FORBIDDEN except where an Op explicitly defines it. Composite values (List/Map) are first-class and MAY be passed as parameters and returned from Functions, which makes SIR expressive enough to represent structured data such as ASTs.
+
+        Literals
+            Type: Section
+            Role: Content
+            Caption: 6.2 Literals & Parameters
+            Content: Params entries that are not NodeIds are interpreted as literal values by their surface form. A token wrapped in matching single or double quotes is a String whose inner content is taken verbatim (a quoted "7" is the string "7"). Unquoted true / false / null (case-insensitive) are Bool / Null. Any other token is interpreted as Int when it parses as a decimal integer (optional sign), as Float when it parses as a decimal floating-point form (optional sign, decimal point and/or exponent), and otherwise remains a String. No other implicit coercions exist; conversions between types happen only through explicit Ops. NodeIds refer to bound variable names in the execution environment.
+
+         CoreOps
+            Type: Section
+            Role: Content
+            Caption: 6.3 Core Ops (arithmetic & comparison)
+            Content: Core.Add, Core.Sub, Core.Mul, Core.Div operate on Int/Float operands and return the numeric result (division by zero is a structural RuntimeError, surfaced via Result). Division of two Int operands yields an Int truncated toward zero — matching the i64 machine semantics of the §6.13 lowerings; if either operand is a Float, the result is a Float. Core.Eq, Core.Lt, Core.Gt, Core.And, Core.Or, Core.Not operate on comparable values and return Bool. Core.Neg (unary) negates a numeric operand. Core.Mod returns the modulo of two numeric operands. Core.Lit binds a literal value to Returns. An Instruction with Op Core.* and no declared Capability is pure and may run under any Origin. Rendering rule: a Bool value emitted through Sys.Output prints as 1 or 0 (payload form), not as true/false — engines MUST render it identically.
+
+        Assignment
+            Type: Section
+            Role: Content
+            Caption: 6.4 TransientVar Assignment
+            Content: An Instruction with any pure Op binds its result to the NodeId named by Returns as a TransientVar in the current Function frame. TransientVars are destroyed on Return and MUST NOT leak into the persistent STF-Memory graph.
+
+        ResultMonad
+            Type: Section
+            Role: Content
+            Caption: 6.5 Result Monad
+            Content: A Result value wraps either Ok(value) or Error(message). Fallible Core Ops (Core.Div) return a Result; successful pure Ops return plain values. When an Instruction receives a parameter that is an Error Result, it does not execute — it forwards the Error Result to its Returns, so errors propagate through a computation without exceptions. Structurally, the Result node of a Function is a direct child of that Function; its Returns property names the NodeId whose bound value is the function's result. On success that value is returned unwrapped; if it is itself an Error Result, or if any instruction in the frame failed, the Error Result propagates to the caller as the call's value.
+
+        MemoryOps
+            Type: Section
+            Role: Content
+            Caption: 6.6 Memory Ops (STF-Memory)
+            Content: A Memory Region is an addressable container identified by a literal Name. Two kinds of regions exist: the graph region "graph" — the persistent STF-Memory knowledge graph keyed by NodeRef (semantics unchanged); and buffer regions — linear byte-addressable storage keyed by integer offset, of which the region "heap" denotes the target platform's linear memory. When the first parameter of a Mem Op is the literal "heap", the Op addresses the buffer; otherwise the Op addresses the persistent graph (the Region defaults to "graph", preserving the short forms below). Buffer Ops carry a Width operand in bytes — 1, 2, 4 or 8 — selecting byte / i32 / i64 cells: Mem.Read("heap", Offset, Width) loads the cell at byte offset Offset little-endian and zero-extends it to Int; Mem.Write("heap", Offset, Value, Width) stores the low Width bytes of Value little-endian. Access outside the region bounds is a structural RuntimeError surfaced via Result; no alignment is enforced. Mem.Alloc("heap", Size) bump-allocates Size bytes and returns the base offset as an Int; allocated blocks are never freed. The heap capacity equals the target's declared linear memory (4 pages of 64 KiB minimum); exhausting it is a structural RuntimeError surfaced via Result — automatic growth (memory.grow) is left to a later stage. The heap cursor starts at 1024: the data region 0..1024 holds string literals. Capability requirements are unchanged: Mem.Read requires the Mem.Read Capability; Mem.Write and Mem.Alloc require the MemPersistentWrite Capability. TransientVars (ordinary Returns bindings) remain distinct from STF-Memory: the former are frame-local and volatile, the latter address STF-Memory regions. A Module MUST declare the corresponding Capabilities to invoke these Ops, or execution is a structural TrustBoundaryViolation.
+
+        StringOps
+            Type: Section
+            Role: Content
+            Caption: 6.7 String & Composite Ops
+            Content: These pure Core Ops build and inspect structured and textual data — the minimum needed to parse and emit programs (e.g., a self-hosting compiler). String Ops: Core.StrConcat(*args) concatenates string forms; Core.StrLen(s) returns length; Core.StrSub(s, start, length) returns a substring; Core.StrIdx(haystack, needle) returns the first index of needle or -1; Core.StrParse(s) parses a string into Int/Float/Bool when possible — a decimal float form (e.g. 1.5, with decimal point and/or exponent) MUST yield Float, never a silently truncated Int; Core.NumToStr(n) renders a number as a string. List Ops: Core.List(*args) builds a list; Core.ListGet(list, i), Core.ListSet(list, i, v) (returns a new list), Core.ListLen(list), Core.ListPush(list, v) and Core.ListConcat(a, b) (both return new lists); Core.ListPop(list) returns a new list without the last element (empty list is a structural error, loud); Core.Sort(list) returns a new list with the elements sorted in ascending order. Applied to a String, Core.ListGet(s, i) returns the byte value (Int) at index i — this lets binary parsers (e.g. ParseWasm over file bytes read as text) operate without conversion. Map Ops: Core.Map(k1, v1, k2, v2, …) builds a map from paired arguments; Core.MapGet(map, k), Core.MapSet(map, k, v) (returns a new map), Core.MapKeys(map) returns the key list. All are pure and need no Capability.
+
+        BulkInPlace
+            Type: Section
+            Role: Content
+            Caption: 6.7.1 Bulk construction, structural sharing, and in-place update
+            Content: The functional observable semantics above are unchanged: ListPush/ListConcat/MapSet/ListSet return new containers and all Core Ops of §6.7 stay pure. Beneath that, engines MAY use structural sharing (chunks, ropes, persistent nodes): two observably-equal containers MAY share structure, and an engine MUST document the complexity class of ListPush, ListConcat and MapSet (naive per-element copy is O(n) per call and MUST NOT be presented as cheap; amortized O(1) append is the target for B1-scale inputs). For bulk string building, Core.StrJoinParts(parts) concatenates a List of strings in a single pass — it is the sanctioned replacement for StrConcat-accumulator loops, which are O(n-squared) and MUST NOT appear in shipped Low-level code. Opt-in mutation is provided by Core.ListPushMut(list, v), Core.ListSetMut(list, i, v) and Core.MapSetMut(map, k, v): each mutates its container in place and returns the SAME container. Linear-use contract: invoking a Mut Op on a container that is still referenced elsewhere (another live binding, a captured argument) is a structural error — engines MUST either enforce single ownership or document a last-use requirement; pure programs MUST NOT use Mut Ops. Core.StrJoin (bulk join with separator, §6.9.3) remains the portable bulk alternative at High level. Implementation status: the Mut family and Core.StrJoinParts are specified here in v0.11.0-draft; engine support lands with the TD-021 batch (host interpreter first, WASM backends as a sync pair with byte-gates) — until then, invoking them is a load-time structural error, never silent behavior.
+
+        FunctionsCalls
+            Type: Section
+            Role: Content
+            Caption: 6.8 Functions & Calls
+            Content: A Module MAY declare multiple Function nodes, each with an optional Name. The entry point is the Function named "main", or the first Function if none is named. A Function is invoked by an Instruction with Op Ctrl.Call whose first Param is the function Name and the remaining Params are the call arguments, positionally bound to the callee's Params. Each call executes in a FRESH local scope (a new Frame): TransientVars are isolated and MUST NOT leak to the caller; the persistent STF-Memory store IS shared across calls. The call returns the value bound by the callee's Result node (unwrapped on success, or the Error Result if the callee failed). Recursion is permitted; an implementation MUST bound call depth to prevent runaway recursion. Because SIR now has recursion, structured data (List/Map), branching, loops, and string Ops, it is expressive enough to implement non-trivial algorithms (including a compiler for itself).
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 6.9 Standard Library (prelude)
+
+        PreludeMechanism
+            Type: Section
+            Role: Content
+            Caption: 6.9.1 Prelude mechanism
+            Content: The interpreter ships a Standard Library as a set of SIR modules (the "prelude") living in a directory next to the package (sir_lib/*.stf). On run() with the default prelude, every prelude module is loaded and its Function nodes are merged into the callable namespace; the SIR PROGRAM's Functions OVERRIDE any prelude Function of the same name. A prelude module MUST NOT declare a main Function (the program owns the entry point). An empty prelude list disables the library entirely. This realizes the "no syntactic sugar" decision: higher-level vocabulary is expressed as ordinary SIR Functions over the Core Op primitives, not as new syntax.
+
+        CtrlCallConstraint
+            Type: Section
+            Role: Content
+            Caption: 6.9.2 Ctrl.Call resolves Function names only
+            Content: Ctrl.Call invokes a Function by Name (the first Param). It resolves ONLY Function names — it cannot call a Core.* Op directly. To use a Core arithmetic/comparison/logic Op as a higher-order argument (e.g. as the fold/combine function), the prelude ships core_fn.stf, exposing those Ops as callable Functions: Add, Sub, Mul, Div, Mod, Eq, Lt, Gt, Le, Ge, Ne, And, Or, Max2, Min2.
+
+        ExtendedCoreOps
+            Type: Section
+            Role: Content
+            Caption: 6.9.3 Extended Core Op set (interpreter)
+            Content: The M1.6 interpreter extends §6.3 with: numeric — Core.Le, Core.Ge, Core.Ne, Core.IntDiv, Core.Floor, Core.Ceil, Core.Round, Core.Abs, Core.Sign, Core.Min, Core.Max, Core.Pow, Core.Sqrt, Core.Clamp, Core.Sum, Core.Product, Core.Range; string — Core.StrSplit, Core.StrJoin, Core.StrUpper, Core.StrLower, Core.StrTrim, Core.StrContains, Core.StrStartsWith, Core.StrEndsWith, Core.StrReplace; char — Core.Ord, Core.Chr; type predicates — Core.IsNull, Core.IsList, Core.IsMap, Core.IsStr, Core.IsNum, Core.IsBool; booleans — Core.True, Core.False. Core.Literal quoted tokens are STRING values (a quoted "7" stays the string "7"; an unquoted 7 is the integer 7).
+
+        LibraryInventory
+            Type: Section
+            Role: Content
+            Caption: 6.9.4 Library inventory
+            Content: collections — Map, Filter, Fold, ForEach, Reverse, Zip, Range, Take, Drop, Head, Tail, Last, Nth, Init, Contains, Count, IndexOf, Any, All, Find, Concat, Flatten, Distinct, Enumerate, Partition, GroupBy, FlatMap, Sort. strings — SplitLines, JoinLines, Words, Slice, Capitalize, PadStart, RepeatStr, Truncate, StartsWith, EndsWith, ContainsStr, ReplaceStr. math — Gcd, Lcm, Factorial, IsPrime, Even, Odd, DivMod, Mean, Median. functional — Identity, Constant, Apply, Compose, Pipe. result — Ok, Err, IsOk, IsErr, Unwrap, MapResult, AndThen, OrElse. dictutil — Keys, Values, Items, FromPairs, Merge, GetOr, HasKey, MapValues, FilterKeys, Invert. core_fn — Add, Sub, Mul, Div, Mod, Eq, Lt, Gt, Le, Ge, Ne, And, Or, Max2, Min2, Equals, TypeOf, StrFind, StrCount. io — ReadLine, Print, PrintLn, WriteLines.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 6.10 M2 language-extension primitives
+
+        StructuralEquality
+            Type: Section
+            Role: Content
+            Caption: 6.10.1 Core.Equals (structural equality)
+            Content: Core.Equals(a, b) returns True only when a and b are of the SAME type AND structurally equal — distinct from the shallow Core.Eq (plain value equality). bool and int are different types (True != 1). Lists are equal when same length and elements equal position-wise; Maps when they have the same keys and equal values. Needed by the SIR self-hosting compiler to compare ASTs and by generic data algorithms.
+
+        TypeTag
+            Type: Section
+            Role: Content
+            Caption: 6.10.2 Core.TypeOf (type tag)
+            Content: Core.TypeOf(v) returns a string tag of v: "null", "bool", "int", "float", "str", "list", or "map". Used by the compiler to dispatch on SIR node kinds and by programs that must branch on a value's dynamic type.
+
+        LexingHelpers
+            Type: Section
+            Role: Content
+            Caption: 6.10.3 Core.StrFind / Core.StrCount (lexing helpers)
+            Content: Core.StrFind(haystack, needle, start=0) returns the index of the first occurrence of needle in haystack from start, or -1 if absent. Core.StrCount(haystack, needle) returns the number of non-overlapping occurrences. These support building the SIR parser/tokenizer in SIR. The prelude (core_fn.stf) exposes them as callable Functions Equals, TypeOf, StrFind, StrCount.
+
+        LowLevelPrimitives
+            Type: Section
+            Role: Content
+            Caption: 6.10.4 Core.BitAnd / Core.BitOr / Core.BitXor / Core.ShiftL / Core.ShiftR / Core.Id (low-level abstraction)
+            Content: These M2 interpreter primitives cover the low-level numeric abstraction that a WASM backend (Phase 5) emits directly. Core.BitAnd(a, b), Core.BitOr(a, b), Core.BitXor(a, b) return the bitwise AND/OR/XOR of two Int operands. Core.ShiftL(a, b) returns a << b (arithmetic/logical left shift by b bits); Core.ShiftR(a, b) returns a >> b (right shift by b bits). All three bitwise groups operate on Int and return Int; they are pure and need no Capability. Core.Id(v) is the identity binding — it returns v unchanged — used by the compiler as a pure variable-binding / reassignment primitive (e.g. binding an already-computed value to a new NodeId). The Op property examples in §2.1 MUST be extended with the Core.BitAnd / Core.BitOr / Core.BitXor / Core.ShiftL / Core.ShiftR / Core.Id namespaces.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 6.11 Module Composition / Native Includes
+
+        IncludeNode
+            Type: Section
+            Role: Content
+            Caption: 6.11.1 Include node
+            Content: A Module MAY declare Include child nodes that pull in other SIR modules at load time. The parser builds Include as a generic child of Module with two properties: Path (required) — a relative-or-absolute path to a .sir/.stf file — and Module (optional) — a logical name for the included module. Because the parser only builds the object/property tree, no grammar change is required; Include is simply an ordinary object child.
+
+        IncludeForm
+            Type: Section
+            Role: Content
+            Caption: 6.11.2 Form
+            Content: A Module declares includes as in the following shape:
+                Module
+                    Include
+                        Path: Lowering/Lowering.sir
+                        Module: Lowering
+                    Function
+                        Name: main
+
+        IncludeResolution
+            Type: Section
+            Role: Content
+            Caption: 6.11.3 Resolution & base_dir
+            Content: On run(), the interpreter resolves every Include: it parses the target file, recursively resolves that file's own Includes, and merges the resulting Function nodes into the callable namespace. Path is resolved relative to the directory of the file that performs the include (base_dir); the top-level program's base_dir defaults to the current working directory and is overridable via run(base_dir=...). A nested include resolves its own Path relative to the directory of the file that contains it, so composition is position-independent.
+
+        IncludePrecedence
+            Type: Section
+            Role: Content
+            Caption: 6.11.4 Three-tier precedence
+            Content: Functions are merged with the precedence (lowest to highest): prelude_funcs < include_funcs < program_funcs. Concretely functions = {**prelude_funcs, **include_funcs, **program_funcs}: a program Function overrides an included one of the same name, and an included Function overrides a prelude one. This realizes composition as ordinary SIR over the Core primitives, with no new syntax for calls.
+
+        IncludeConstraints
+            Type: Section
+            Role: Content
+            Caption: 6.11.5 Constraints
+            Content: An included module MUST NOT declare a main Function — the entry point belongs to the program document. Duplicate Function names across included modules are a load error. Cycle detection uses absolute resolved paths: if a path is already on the inclusion stack (the seen set), loading raises an error. Because _build_functions only collects Function children, an Include node is invisible to entry selection and to existing programs, so modules without Includes run unchanged.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 6.12 Two-Domain Value Model
+
+        TwoDomainModel
+            Type: Section
+            Role: Content
+            Caption: 6.12.1 Portable and raw domains
+            Content: SIR values live in two domains. The PORTABLE domain holds the boxed value set of §6.1: every value is a record carrying a type tag with its payload; all Core.*, Mem.* (graph form) and Sys.* operations operate on it, and it is the only domain visible at AbstractionLevel High. The RAW domain holds unboxed linear-memory quantities — addresses, offsets, lengths, byte cells — operated on exclusively by the IR.* namespace of §6.13; it exists only at AbstractionLevel Low and only on targets with linear memory (§7.6). The domains are strictly separated: an operation of one domain never implicitly consumes or produces a value of the other.
+
+        DomainCrossing
+            Type: Section
+            Role: Content
+            Caption: 6.12.2 Crossing operations
+            Content: Crossing from the raw domain to the portable domain happens through boxing constructors — pure operations that wrap a raw quantity into a tagged portable value (e.g., wrapping a raw integer into an Int box). Crossing from portable to raw happens through unboxing accessors — operations that read the payload field of a box at a documented offset as a raw quantity. On linear-memory targets these crossings are realized as specified in §7.6; their abstract contracts are part of this specification, their byte-level layouts are not. A function body MUST NOT mix the two domains except through these explicit crossing operations.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 6.13 Low-Level / Linear-Memory Ops (IR namespace)
+
+        RawOps
+            Type: Section
+            Role: Content
+            Caption: 6.13.1 Scope of the IR namespace
+            Content: The IR.* namespace carries operations over the raw domain (§6.12). These ops are available only to Low-level modules (§2.1 AbstractionLevel); backends lower them directly onto target primitives. Their semantics below are abstract; byte encodings and calling conventions belong to §7.6.
+
+        RawArith
+            Type: Section
+            Role: Content
+            Caption: 6.13.2 Raw arithmetic and literals
+            Content: IR.WLit binds an untyped raw constant. IR.WAdd, IR.WSub, IR.WMul add/subtract/multiply raw integers with two's-complement wrap-around at the target word size. IR.WDivS / IR.WRemS divide/remainder with sign semantics; IR.WDivU / IR.WRemU with unsigned semantics; division or remainder by zero is a structural RuntimeError surfaced via Result. All take raw operands and return a raw result.
+
+        RawCompareLogic
+            Type: Section
+            Role: Content
+            Caption: 6.13.3 Raw comparison, bitwise, logic
+            Content: IR.WEq / IR.WNe compare raw values for equality/inequality. Ordered comparisons come in signed (IR.WLtS, IR.WLeS, IR.WGtS, IR.WGeS) and unsigned (IR.WLtU, IR.WGtU, IR.WGeU) forms. Bitwise/logic: IR.WAnd, IR.WOr, IR.WNot. Comparisons yield a raw boolean (zero/non-zero). Boxed twins for portable Core bit/shift Ops: IR.BitAnd, IR.BitOr, IR.ShiftL, IR.ShiftR take boxed Int operands (unboxed by backends) and return a boxed Int; the IR.W* twins stay raw-only for Low-level code and MUST NOT receive boxes.
+
+        RawMemory
+            Type: Section
+            Role: Content
+            Caption: 6.13.4 Raw memory access
+            Content: IR.Alloc(Size) bump-allocates Size bytes in linear memory and returns the base address as a raw value; allocated blocks are never freed. IR.Load(Addr, Width) reads the cell of Width bytes (1, 2, 4 or 8) at Addr little-endian, zero-extended; IR.Store(Addr, Value, Width) stores the low Width bytes little-endian; no alignment is enforced. Bounds violations are structural RuntimeErrors surfaced via Result. IR.GlobalGet / IR.GlobalSet access module-level scalar cells. These ops are the lowering targets of the buffer form of Mem.Read/Mem.Write/Mem.Alloc (§6.6) and are used directly by Low-level runtime code.
+
+        RawHostBoundary
+            Type: Section
+            Role: Content
+            Caption: 6.13.5 Raw host boundary and identity
+            Content: IR.FdWrite(Fd, IovPtr, Count, ResPtr) and IR.FdRead(Fd, IovPtr, Count, ResPtr) invoke the target's host I/O boundary over raw descriptors and iovec records; their capability mapping per target is fixed by §7.6. IR.Id(v) is the identity binding within the raw domain, usable as a pure reassignment primitive.
+
+        RawFloat
+            Type: Section
+            Role: Content
+            Caption: 6.13.6 Raw float ops (binary64 as i64 bits)
+            Content: The unified i64 ABI keeps all locals raw-i64, so binary64 values travel as their bit patterns: IR.F64Add, IR.F64Sub, IR.F64Mul, IR.F64Div take two i64 locals holding binary64 bits and return the operation result bits (division by zero yields infinity, never a trap). IR.F64Eq, IR.F64Lt, IR.F64Gt compare bit-held binary64 values and return a raw boolean (zero/non-zero) extended to raw-i64. IR.F64FromI64 converts a raw i64 to binary64 bits; IR.F64ToI64 truncates binary64 bits toward zero to a raw i64 (out-of-range, NaN and infinity trap loudly); IR.F64Floor takes binary64 bits and returns the floor-value bits. All take raw operands and return raw results; boxing a binary64 payload into a portable Float uses the tag-6 constructor contract of §7.6(f).
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 7. Targets & Platform Bindings
+
+        TargetDeclaration
+            Type: Section
+            Role: Content
+            Caption: 7.1 Target Declaration
+            Content: A Module declares supported targets via the Target property: a comma-separated list of target identifiers (e.g., linux, windows, android, ios, browser-sil, browser-html, wasm). The runtime selects one active Target and binds each abstract capability interface to that target's backend.
+
+        CapabilityInterfaces
+            Type: Section
+            Role: Content
+            Caption: 7.2 Abstract Capability Interfaces
+            Content: Capability Ops live under the Sys namespace and define platform-independent contracts, not implementations: Sys.Display (present information), Sys.Input (obtain input from a named channel), Sys.Output (emit a value to an output sink), Sys.Storage (persistent platform-local read/write), Sys.Network (communication), Sys.Process (spawn/observe). A Module MUST list a capability in its Capabilities property to invoke the corresponding Sys.* Op; otherwise execution is a structural TrustBoundaryViolation.
+
+        IOInterface
+            Type: Section
+            Role: Content
+            Caption: 7.2.1 Input / Output Semantics
+            Content: Sys.Input(Channel) reads the value bound to Channel from the input channels supplied at launch (for self-hosting, the compiler's source text is provided this way) and requires the Sys.Input Capability. Sys.Output(Value) emits Value to an output sink — the runtime appends it to the execution effects (Binding Sys.Sink.Capture) — and requires the Sys.Output Capability. Together with string Ops and structured data, these let a SIR program read its own source and emit a compiled result without platform-specific code.
+
+        TraceInterface
+            Type: Section
+            Role: Content
+            Caption: 7.2.2 Trace / Instrumentation Semantics
+            Content: Sys.Trace(Path) is the single canonical instrumentation Op for observability tooling (e.g. Revizor trace points). Path is one Params entry — an unquoted dotted trace path of the form module.func.stage where stage is enter, success, failed or decision.name; the path MUST match [a-z0-9_.]+ (max 120 chars, snake_case) and MUST NOT contain brackets, quotes or whitespace. Sys.Trace is pure: it needs NO Capability, binds NO value, raises NO error, and is invisible to program semantics — an engine that executes it emits the trace event and continues. Engines that lower SIR to another form (IR, WASM, native) MUST strip Sys.Trace instructions entirely: they MUST contribute zero instructions and zero bytes to the lowered output, so instrumented and clean sources compile byte-identically. Sys.Trace MUST NOT be classified as error-aware and MUST NOT participate in Result propagation.
+
+        BackendBinding
+            Type: Section
+            Role: Content
+            Caption: 7.3 Backend Binding
+            Content: A Backend supplies the concrete implementation of each abstract interface for one target. The same call Sys.Display(text) resolves to stdout (linux), Toast (android), UIAlert (ios), SIL Intent/Render (browser-sil), or generated HTML (browser-html). The SIR source is written once; only the selected backend differs.
+
+        Adapters
+            Type: Section
+            Role: Content
+            Caption: 7.4 Structural Adapters (self-describing platform behavior)
+            Content: When behavior differs per target, a Module MUST contain Adapter nodes that make the platform effect visible IN THE DOCUMENT. Each Adapter is scoped by a Target attribute (comma-separated target identifiers). The runtime includes only the Adapter matching the active Target; others are ignored. This is the explicit, structural analog of conditional compilation — the universal body stays shared, and the differences are not hidden in out-of-band backend code.
+
+        AdapterStructure
+            Type: Section
+            Role: Content
+            Caption: 7.4.1 Adapter Node Structure
+            Content: An Adapter node carries the following properties. Target (required): the list of target identifiers this Adapter applies to. Binding (required): the name of a STANDARD platform capability from the runtime registry (e.g., Sys.Sink.Stdout, Sys.Notify.Toast, Sys.Web.H1, Sys.Sil.Render) that the runtime executes for this target. Effect (recommended): a human-language description of the concrete effect, so any reader — without knowing SIR — understands what happens on the target. A Module SHOULD declare one Adapter per supported target; if an Adapter is missing for a declared target, the runtime MAY fall back to a default Binding by target name, but such a module is "incompletely self-describing".
+
+        SysRegistry
+            Type: Section
+            Role: Content
+            Caption: 7.5 Sys Op Registry
+            Content: The standard Sys surface defined by this specification. Channel Ops: Sys.Input(Channel) reads the value bound to Channel from the input channels supplied at launch; Capability Sys.Input. Sys.Output(Value) appends Value to the execution effects through an output sink binding; Capability Sys.Output. Sys.Storage.Read(Path) reads persistent platform-local storage as text; Capability Sys.Storage. Instrumentation Op: Sys.Trace(Path) — pure observability event (§7.2.2); NO Capability required; code-generating backends MUST strip it to zero bytes. Sink bindings (selected by Adapters, §7.4, never invoked directly by programs): Sys.Sink.Stdout — console output on terminal-class targets; Sys.Sink.Capture — in-process capture buffer used by tests and tooling; Sys.Notify.Toast — transient notification on mobile/desktop shells; Sys.Sil.Render — rendering into a SIL document on browser-sil targets. Behavior when no binding can be established for the active Target: after the default-Binding fallback of §7.4 is exhausted, the invocation is a structural RuntimeError surfaced via Result — output is never silently discarded.
+
+        RuntimeABI
+            Type: Section
+            Role: Content
+            Caption: 7.6 Runtime ABI on linear-memory targets (draft skeleton)
+            Content: This section anchors where the portable domain (§6.12) meets raw linear memory. It lists normative topics whose concrete layouts are fixed in Phase 8. (a) Box layout — a portable value occupies a fixed-size record {type tag, payload}; numeric and condition payloads are read at documented offsets. (b) Bool realization — Branch/Loop conditions (§5) resolve to a portable Bool realized as a tagged record; lowering maps condition evaluation to a raw zero/non-zero test against the payload; this is the normative home of the condition contract on linear-memory targets. (c) Helper index contract — a compiled runtime provides fixed-purpose helper functions (constructors, arithmetic/ comparison bridges, string and collection primitives, I/O helpers) at stable function indices; user functions follow them; conforming backends derive call indices from the parsed runtime module rather than hard-coding positions. (d) Debox/rebox boundaries — public helper parameters take portable (boxed) values; raw computation inside helpers operates on payloads after explicit unboxing (§6.12.2); results are re-boxed before returning to portable callers. (e) Data region — string literals occupy a reserved low region of linear memory; the allocation cursor starts above it (consistent with the heap cursor of §6.6). (f) Float payload — a portable Float carries the type tag 6 with an IEEE-754 binary64 payload little-endian, preserved exactly across boxing and unboxing; backends MUST NOT truncate a Float to Int — an engine without float lowering MUST refuse loudly (ValueError / poison-call class), never silently.
+
+    Section
+        Type: Section
+        Role: Content
+        Caption: 8. Conformance Requirements
+
+        ConformanceItem
+            Type: Text
+            Caption: Structural Parsing
+            Content: An engine MUST parse and generate SIR documents as valid STF documents built from the vocabulary of this specification, conforming to the STF core grammar.
+        ConformanceItem
+            Type: Text
+            Caption: Capability Enforcement
+            Content: An engine MUST enforce the Capabilities property: invoking a Sys.* or persistent Mem.* Op without the corresponding Capability is a structural TrustBoundaryViolation.
+        ConformanceItem
+            Type: Text
+            Caption: Untrusted Sandboxing
+            Content: An engine MUST enforce the trust boundaries of §4: Modules with Origin: Human or Agent MUST NOT be granted declared Capabilities, and privileged execution attempts from them are structural TrustBoundaryViolations.
+        ConformanceItem
+            Type: Text
+            Caption: Bounded Execution
+            Content: An engine MUST bound Loop iterations and Ctrl.Call depth so runaway programs terminate with an error rather than hang.
+        ConformanceItem
+            Type: Text
+            Caption: Monadic Fidelity
+            Content: An engine MUST implement Result propagation exactly as specified in §3 and §6.5: no hidden exceptions, no silent swallowing of Error Results.
+        ConformanceItem
+            Type: Text
+            Caption: Deterministic Composition
+            Content: An engine MUST resolve Includes deterministically (§6.11): fixed precedence, duplicate-name detection, cycle detection by absolute path.
+        ConformanceItem
+            Type: Text
+            Caption: Level Discipline
+            Content: An engine SHOULD validate AbstractionLevel discipline (§2.1): one level per Module, no mixing of level vocabularies inside one Function body, crossings only through Function boundaries.
+        ConformanceItem
+            Type: Text
+            Caption: Trace Stripping
+            Content: An engine MUST implement Sys.Trace exactly as specified in §7.2.2: execution emits the trace event with no effect on program state; lowering and code generation MUST strip Sys.Trace to zero instructions and zero bytes; Sys.Trace MUST NOT require any Capability and MUST NOT be error-aware.
+        ConformanceItem
+            Type: Text
+            Caption: Version Gate
+            Content: A compiling engine MUST enforce the version declaration of §2.5: refuse loudly on a newer-than-supported DocumentVersion (never cascade-fail), accept older versions (backward compatibility), and refuse loudly with a hint on a missing declaration (never assume silently).

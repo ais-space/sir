@@ -1,0 +1,173 @@
+Context
+    DocumentVersion: 0.2.0-draft
+    GrammarVersion: 1.0.1
+    Language: en
+
+Page
+    Role: Content
+    Purpose: Research concept for using STF as a structural intermediate representation for executable agent logic.
+
+    Section
+        Role: PageHeading
+        Text
+            Content: SIR (Semantic Intermediate Representation)
+        Text
+            Content: A Structural Model for Agent-Native Executable Logic
+        Text
+            Content: Version 0.2.0-draft (conceptual)
+
+    Section
+        Role: Content
+        Purpose: Abstract and motivation.
+        Heading
+            Type: Heading
+            Content: Abstract
+        Text
+            Content: This document explores the use of STF as a general-purpose intermediate representation (IR) for executable logic, designed specifically for intelligent agents and compilers rather than for human readability.
+        Text
+            Content: The language problem — traditional programming languages were designed for humans. They carry syntactic sugar, context-dependent grammars, and formatting conventions. When LLMs generate code, they waste tokens predicting syntax rather than semantics, and they are prone to syntax hallucinations. Furthermore, combining modules from different languages (e.g., Python and C) is complex due to mismatched intermediate representations and foreign function interfaces.
+        Text
+            Content: Proposed direction — use STF as a direct Abstract Syntax Tree (AST) representation. Agents write structural nodes directly, making syntax errors structurally impossible. SIR allows modules to exist at different levels of abstraction within the same semantic graph, bridging the gap between high-level logic and low-level execution.
+        Text
+            Content: This document does not define a production-ready compiler, instruction set architecture, runtime memory manager, or type system. It is a research starting point intended to invite independent implementations and alternative models.
+        Text
+            Content: Status — conceptual draft. The language is descriptive, not normative.
+
+    Section
+        Role: Content
+        Purpose: Core design thesis and principles.
+        Heading
+            Type: Heading
+            Content: Design Thesis
+        Text
+            Content: Executable agent logic should be represented as a structural semantic tree rather than a flat text string parsed by context-dependent grammars.
+
+        Heading
+            Type: Heading
+            Content: Core Principles
+        Text
+            Content: Principle 1 — Code is Data. SIR modules are valid STF documents. They can be read, written, and reasoned about by agents as semantic trees, not as raw text strings.
+        Text
+            Content: Principle 2 — Explicit Abstraction. SIR modules may be written at different levels of abstraction (High, Mid, Low). The level is declared explicitly in the structure, allowing the compiler to understand the context without guessing.
+        Text
+            Content: Principle 3 — Unified Memory Space. Executable code (SIR) and persistent state (STF-Memory) share the same structural graph and addressing scheme. The boundary between application data and executable logic becomes structurally transparent.
+        Text
+            Content: Principle 4 — Trust-Aware Execution. SIR reuses the STF Trust Model. Code execution authority is bounded by Origin. Untrusted code (from agents) is structurally forbidden from executing side-effects.
+        Text
+            Content: Principle 5 — Structural Determinism. Control flow and concurrency are represented as explicit structural branches, avoiding hidden state mutations or ambiguous jumps.
+
+    Section
+        Role: Content
+        Purpose: Conceptual model of execution and memory.
+        Heading
+            Type: Heading
+            Content: Conceptual Model
+        Text
+            Content: SIR models executable logic as a semantic tree whose nodes represent functions, instructions, variables, and control flow branches.
+
+        Heading
+            Type: Heading
+            Content: State Isolation (Transient vs Persistent)
+        Text
+            Content: SIR explicitly separates execution state from persistent memory. Transient Memory Nodes are local variables and intermediate calculations that live only within a function's execution frame and are destroyed upon Return. Persistent Memory Nodes (STF-Memory) are long-lived graph nodes. A Tree-Walk runtime MUST isolate Transient scopes to prevent the pollution of the persistent knowledge graph with temporary data.
+
+        Heading
+            Type: Heading
+            Content: Multi-Level Unification
+        Text
+            Content: Traditional compilers separate High-Level IR (HIR), Mid-Level IR (MIR), and Low-Level IR (LIR). SIR proposes that these levels can coexist within the same STF representation. An agent may write a high-level functional call, which invokes a low-level memory manipulation instruction.
+
+        Heading
+            Type: Heading
+            Content: Structural ABI Contracts
+        Text
+            Content: When a High-Level node invokes a Low-Level instruction, the compiler requires an explicit boundary contract. SIR defines Structural ABI nodes where high-level data structures are unpacked into primitive representations (e.g., raw memory offsets or register mappings) via explicit mapping. Without this contract, cross-level lowering to targets like WebAssembly is structurally unresolvable and ambiguous.
+
+        Heading
+            Type: Heading
+            Content: Execution Phases
+        Text
+            Content: A SIR program is intended to be executed in a dual-phase model. Phase 1 is Tree-Walk Interpretation, where the runtime directly interprets the STF AST for rapid agent prototyping. Phase 2 is AOT Compilation, where the structural tree is lowered to a binary format for production performance.
+
+    Section
+        Role: Content
+        Purpose: Conceptual operations.
+        Heading
+            Type: Heading
+            Content: Conceptual Operations
+        Text
+            Content: The following operations are proposed as conceptual primitives. They are not part of the STF grammar and are not normative.
+
+        Heading
+            Type: Heading
+            Content: Call
+        Text
+            Content: Invokes a function node, passing parameters and receiving a result. Calls may cross abstraction levels seamlessly, provided Structural ABI contracts are satisfied.
+
+        Heading
+            Type: Heading
+            Content: Branch
+        Text
+            Content: Evaluates a condition and structurally executes one of two (or more) child blocks. Prevents arbitrary jumps.
+
+        Heading
+            Type: Heading
+            Content: AsyncGroup
+        Text
+            Content: Declares that a set of instructions have no data dependencies and may be executed concurrently. Synchronization is explicit.
+
+        Heading
+            Type: Heading
+            Content: Result Return
+        Text
+            Content: Functions return a monadic Result node rather than throwing exceptions. Callers inspect the structural State (Ok or Error) to handle failure, preventing hidden stack unwinding.
+
+    Section
+        Role: Content
+        Purpose: Explicit trade-offs and limitations.
+        Heading
+            Type: Heading
+            Content: Trade-offs and Limitations
+        Text
+            Content: The Syntax vs Verbosity Trade-off — representing an AST in textual STF format requires explicit indentation and metadata nodes. This inevitably increases token usage compared to flat, syntactically dense languages like Python. This cost is accepted intentionally, trading token efficiency for structural determinism, zero syntax hallucinations, and machine-verifiable semantics.
+
+    Section
+        Role: Content
+        Purpose: Relationship to the STF Ecosystem.
+        Heading
+            Type: Heading
+            Content: Ecosystem Closure
+        Text
+            Content: SIR is an application vocabulary of the STF ecosystem. STF provides the syntax. SIL provides the human interface. STF-Memory provides the persistent state. SIR provides the executable logic. Together, they form a machine-readable environment for autonomous agents where data, memory, interface, and code share a single structural language.
+        Text
+            Content: The vocabulary set is deliberately open: further application vocabularies on the same core (e.g., configuration languages, frontend/interface-generation languages) are expected and desirable. A new domain joins by defining its vocabulary over the STF core — not by extending the core grammar.
+
+    Section
+        Role: Content
+        Purpose: How this concept relates to the normative specification.
+        Heading
+            Type: Heading
+            Content: Status Relative to the Specification
+        Text
+            Content: This concept preceded and motivated the normative specification of SIR. Where this document and the specification differ, the specification governs; this document remains the design rationale and research agenda.
+        Text
+            Content: Several proposals of this concept are now normative: structural Branch/Loop control flow, the monadic Result model, dual-phase execution (tree-walk interpretation and AOT lowering), explicit abstraction levels with a declared ladder (High / Mid / Low), a two-domain value model separating portable boxed values from raw linear-memory quantities, structural ABI contracts at level boundaries (held as a reserved contract node until its concrete structure is standardized), and native module composition via includes.
+        Text
+            Content: Remaining research territory: structural concurrency (AsyncGroup is held reserved and inert until its semantics are designed) and dynamic generation of ABI contracts across levels. Self-hosting — open question Q4 — has moved from research to engineering: a SIR-to-binary compiler written in SIR exists and is being driven to a bootstrap fixpoint as its acceptance milestone.
+
+    Section
+        Role: Content
+        Purpose: Open research questions.
+        Heading
+            Type: Heading
+            Content: Open Research Questions
+        Text
+            Content: Q1 — can LLMs effectively generate pure AST structures (SIR) with lower hallucination rates compared to text-based code generation, despite the higher token overhead?
+        Text
+            Content: Q2 — what is the minimal viable instruction set (Op vocabulary) that covers general computation while remaining semantic for agents?
+        Text
+            Content: Q3 — how does structural concurrency (AsyncGroup) compare to traditional thread/async models in terms of compiler lowering complexity?
+        Text
+            Content: Q4 — can a SIR compiler be fully self-hosted (written in SIR) using only the STF grammar?
+        Text
+            Content: Q5 — what is the optimal strategy for generating Structural ABI Contracts dynamically when agent code crosses abstraction levels?

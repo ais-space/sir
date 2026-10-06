@@ -1,0 +1,175 @@
+Context
+    DocumentVersion: 0.11.1-draft
+    GrammarVersion: 1.0.1
+    Language: en
+
+Module
+    Type: Module
+    Role: Content
+    AbstractionLevel: High
+    Caption: Sum a ledger and split it with a loud zero guard
+
+    Function
+        Type: Function
+        Role: Content
+        Name: main
+        Returns: share
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Ledger entries
+            Op: Core.List
+            Params: 10, 20, 30
+            Returns: items
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Running total starts at zero
+            Op: Core.Lit
+            Params: 0
+            Returns: acc
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Scan position starts at zero
+            Op: Core.Lit
+            Params: 0
+            Returns: i
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Length bounds the accumulation
+            Op: Core.ListLen
+            Params: items
+            Returns: n
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Enter while position is inside
+            Op: Core.Lt
+            Params: i, n
+            Returns: cont
+
+        Loop
+            Type: Loop
+            Role: Content
+            Caption: Bounded accumulation over the ledger
+            Condition: cont
+
+            Body
+                Type: Section
+                Role: Content
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Read the current entry
+                    Op: Core.ListGet
+                    Params: items, i
+                    Returns: v
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Add it to the total
+                    Op: Core.Add
+                    Params: acc, v
+                    Returns: acc
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Advance the position
+                    Op: Core.Add
+                    Params: i, 1
+                    Returns: i
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Re-evaluate the bound
+                    Op: Core.Lt
+                    Params: i, n
+                    Returns: cont
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Tag of a boolean value
+            Op: Core.TypeOf
+            Params: true
+            Returns: t1
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Tag of an integer value
+            Op: Core.TypeOf
+            Params: 1
+            Returns: t2
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Tags differ so bool is never an int
+            Op: Core.Eq
+            Params: t1, t2
+            Returns: strict
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Split the total in two parts
+            Op: Core.Lit
+            Params: 2
+            Returns: divisor
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: A zero divisor must never reach Div
+            Op: Core.Eq
+            Params: divisor, 0
+            Returns: isZero
+
+        Branch
+            Type: Branch
+            Role: Content
+            Caption: Loud fallback instead of a hidden trap
+            Condition: isZero
+
+            TrueBlock
+                Type: Section
+                Role: Content
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Degenerate split is zero
+                    Op: Core.Lit
+                    Params: 0
+                    Returns: share
+
+            FalseBlock
+                Type: Section
+                Role: Content
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Even split of the ledger total
+                    Op: Core.Div
+                    Params: acc, divisor
+                    Returns: share
+
+        Result
+            Type: Result
+            Role: Content
+            Caption: One share of the total
+            State: Ok
+            Returns: share

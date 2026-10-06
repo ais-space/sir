@@ -1,0 +1,159 @@
+Context
+    DocumentVersion: 0.11.1-draft
+    GrammarVersion: 1.0.1
+    Language: en
+
+Module
+    Type: Module
+    Role: Content
+    AbstractionLevel: High
+    Caption: Flaky attempt with an explicit retry budget
+
+    Function
+        Type: Function
+        Role: Content
+        Name: main
+        Returns: done
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Attempts spent so far
+            Op: Core.Lit
+            Params: 0
+            Returns: attempt
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Success flag starts cleared
+            Op: Core.Lit
+            Params: 0
+            Returns: done
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Retry budget of five
+            Op: Core.Lit
+            Params: 5
+            Returns: budget
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Budget remains while spent is below it
+            Op: Core.Lt
+            Params: attempt, budget
+            Returns: hasBudget
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Not done yet means the flag is still zero
+            Op: Core.Eq
+            Params: done, 0
+            Returns: notDone
+
+        Instruction
+            Type: Instruction
+            Role: Content
+            Caption: Continue only with budget left and no success
+            Op: Core.And
+            Params: hasBudget, notDone
+            Returns: cont
+
+        Loop
+            Type: Loop
+            Role: Content
+            Caption: Bounded retry loop always terminates
+            Condition: cont
+
+            Body
+                Type: Section
+                Role: Content
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Spend one attempt
+                    Op: Core.Add
+                    Params: attempt, 1
+                    Returns: attempt
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Every third attempt succeeds
+                    Op: Core.Mod
+                    Params: attempt, 3
+                    Returns: r
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Zero remainder means success
+                    Op: Core.Eq
+                    Params: r, 0
+                    Returns: ok
+
+                Branch
+                    Type: Branch
+                    Role: Content
+                    Caption: Set the flag or keep waiting
+                    Condition: ok
+
+                    TrueBlock
+                        Type: Section
+                        Role: Content
+
+                        Instruction
+                            Type: Instruction
+                            Role: Content
+                            Caption: Mark success
+                            Op: Core.Lit
+                            Params: 1
+                            Returns: done
+
+                    FalseBlock
+                        Type: Section
+                        Role: Content
+
+                        Instruction
+                            Type: Instruction
+                            Role: Content
+                            Caption: Flag unchanged
+                            Op: Core.Id
+                            Params: done
+                            Returns: done
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Recompute the remaining budget
+                    Op: Core.Lt
+                    Params: attempt, budget
+                    Returns: hasBudget
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Recompute the waiting state
+                    Op: Core.Eq
+                    Params: done, 0
+                    Returns: notDone
+
+                Instruction
+                    Type: Instruction
+                    Role: Content
+                    Caption: Re-evaluate the loop gate
+                    Op: Core.And
+                    Params: hasBudget, notDone
+                    Returns: cont
+
+        Result
+            Type: Result
+            Role: Content
+            Caption: One on success within budget
+            State: Ok
+            Returns: done
